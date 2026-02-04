@@ -70,10 +70,10 @@ registerSketch('sk4', function (p) {
   }
 
   function drawPuddleMinuteLabel(cx, cy, minute) {
-    // Label lives on the puddle (not on the drip)
+    // Label lives on the puddle (not on the drip) - shows exact minutes
     if (minute <= 0) return;
 
-    const label = String(Math.round(minute / 10) * 10 % 60); // 0,10,20,... for readability
+    const label = String(minute); // Exact minutes: 1, 2, 3...59
 
     p.push();
     p.textAlign(p.CENTER, p.CENTER);
@@ -266,10 +266,12 @@ registerSketch('sk4', function (p) {
     }
 
     // Ice cube height mapped to current hour on a 12-hour scale
+    // Make the cube height match the vertical scale height (yBottom - yTop)
     // 12:00 (hr=0) => tall, 11:00 (hr=11) => nearly flat
     const hr = p.hour() % 12;
+    const scaleHeight = yBottom - yTop; // Height of the vertical hours scale
     const cubeSize = p.min(p.width, p.height) * 0.14;
-    const maxHeightPx = cubeSize * 1.45;
+    const maxHeightPx = scaleHeight * 0.85; // Match the scale height (slightly smaller for visual balance)
     const heightPx = p.map(hr, 0, 11, maxHeightPx, maxHeightPx * 0.06);
 
     // Minutes logic: puddle grows from invisible (0) to floor-filling (59)
