@@ -108,80 +108,70 @@ registerSketch('sk4', function (p) {
   }
 
   function drawIsoIceCube(cx, cy, size, heightPx) {
-    // Isometric proportions
-    const isoW = size;
-    const isoH = size * 0.58;
+    // 3-face isometric cube: Top diamond + Front-Left + Front-Right
+    // `cx,cy` is the center of the bottom footprint (keeps everything centered).
+    const dx = size;        // horizontal half-width
+    const dy = size * 0.58; // vertical half-height of diamond
 
-    // Bottom diamond (on "ground" plane)
-    const A2 = { x: 0, y: -isoH };
-    const B2 = { x: isoW, y: 0 };
-    const C2 = { x: 0, y: isoH };
-    const D2 = { x: -isoW, y: 0 };
+    // Top face vertices (lifted by heightPx)
+    const Ttop = { x: cx, y: cy - heightPx - dy };
+    const Tright = { x: cx + dx, y: cy - heightPx };
+    const Tbottom = { x: cx, y: cy - heightPx + dy };
+    const Tleft = { x: cx - dx, y: cy - heightPx };
 
-    // Top diamond (lifted by heightPx)
-    const A = { x: 0, y: -heightPx - isoH };
-    const B = { x: isoW, y: -heightPx };
-    const C = { x: 0, y: -heightPx + isoH };
-    const D = { x: -isoW, y: -heightPx };
+    // Bottom footprint vertices (on the floor)
+    const Btop = { x: cx, y: cy - dy };
+    const Bright = { x: cx + dx, y: cy };
+    const Bbottom = { x: cx, y: cy + dy };
+    const Bleft = { x: cx - dx, y: cy };
 
-    p.push();
-    p.translate(cx, cy);
-
-    // Soft shadow
+    // Soft shadow (anchored to footprint)
     p.noStroke();
     p.fill(0, 0, 0, 120);
-    p.ellipse(0, isoH * 1.15, isoW * 1.6, isoH * 0.9);
+    p.ellipse(cx, cy + dy * 1.15, dx * 1.6, dy * 0.9);
 
-    // Faces (draw farthest first)
-    p.stroke(210, 240, 255, 140);
+    // Faces
+    p.stroke(210, 240, 255, 150);
     p.strokeWeight(1);
 
-    // Left face
-    p.fill(90, 170, 210, 150);
+    // Front-Left face (Tleft -> Tbottom -> Bbottom -> Bleft)
+    p.fill(85, 170, 215, 160);
     p.beginShape();
-    p.vertex(D.x, D.y);
-    p.vertex(A.x, A.y);
-    p.vertex(A2.x, A2.y);
-    p.vertex(D2.x, D2.y);
+    p.vertex(Tleft.x, Tleft.y);
+    p.vertex(Tbottom.x, Tbottom.y);
+    p.vertex(Bbottom.x, Bbottom.y);
+    p.vertex(Bleft.x, Bleft.y);
     p.endShape(p.CLOSE);
 
-    // Right face
-    p.fill(70, 145, 195, 160);
+    // Front-Right face (Tright -> Tbottom -> Bbottom -> Bright)
+    p.fill(65, 145, 200, 175);
     p.beginShape();
-    p.vertex(B.x, B.y);
-    p.vertex(C.x, C.y);
-    p.vertex(C2.x, C2.y);
-    p.vertex(B2.x, B2.y);
+    p.vertex(Tright.x, Tright.y);
+    p.vertex(Tbottom.x, Tbottom.y);
+    p.vertex(Bbottom.x, Bbottom.y);
+    p.vertex(Bright.x, Bright.y);
     p.endShape(p.CLOSE);
 
-    // Front face (adds solidity; subtle so it still reads as "ice")
-    p.fill(110, 195, 235, 130);
+    // Top face (diamond)
+    p.fill(180, 240, 255, 195);
     p.beginShape();
-    p.vertex(C.x, C.y);
-    p.vertex(D.x, D.y);
-    p.vertex(D2.x, D2.y);
-    p.vertex(C2.x, C2.y);
+    p.vertex(Ttop.x, Ttop.y);
+    p.vertex(Tright.x, Tright.y);
+    p.vertex(Tbottom.x, Tbottom.y);
+    p.vertex(Tleft.x, Tleft.y);
     p.endShape(p.CLOSE);
 
-    // Top face
-    p.fill(175, 235, 255, 185);
-    p.beginShape();
-    p.vertex(A.x, A.y);
-    p.vertex(B.x, B.y);
-    p.vertex(C.x, C.y);
-    p.vertex(D.x, D.y);
-    p.endShape(p.CLOSE);
-
-    // A couple of highlight edges for "ice" crispness
-    p.stroke(235, 250, 255, 170);
-    p.line(A.x, A.y, B.x, B.y);
-    p.line(A.x, A.y, D.x, D.y);
-
-    p.pop();
+    // Crisp highlight edges
+    p.stroke(240, 255, 255, 180);
+    p.line(Ttop.x, Ttop.y, Tright.x, Tright.y);
+    p.line(Ttop.x, Ttop.y, Tleft.x, Tleft.y);
+    p.line(Tleft.x, Tleft.y, Bleft.x, Bleft.y);
+    p.line(Tright.x, Tright.y, Bright.x, Bright.y);
   }
 
   p.setup = function () {
-    p.createCanvas(p.windowWidth, p.windowHeight);
+    // Fixed canvas so center-based geometry is stable
+    p.createCanvas(800, 800);
     p.textFont('Helvetica');
     p.noiseSeed(7);
   };
@@ -251,14 +241,12 @@ registerSketch('sk4', function (p) {
       p.text(String(label), xLine + 14, y);
     }
 
-    // Ice cube height mapped to current hour (12 full -> 11 nearly flat)
-    // Use a smooth hour-in-12 value so it changes continuously within the hour.
-    const hourIn12 = (h % 12) + (m / 60) + (s / 3600); // 0..~11.999
-    const heightFactor = p.constrain(1 - (hourIn12 / 12), 0.03, 1.0);
-
-    const cubeSize = p.min(p.width, p.height) * 0.18;
-    const maxHeightPx = cubeSize * 1.15;
-    const heightPx = maxHeightPx * heightFactor;
+    // Ice cube height mapped to current hour on a 12-hour scale
+    // 12:00 (hr=0) => tall, 11:00 (hr=11) => nearly flat
+    const hr = p.hour() % 12;
+    const cubeSize = p.min(p.width, p.height) * 0.14;
+    const maxHeightPx = cubeSize * 1.45;
+    const heightPx = p.map(hr, 0, 11, maxHeightPx, maxHeightPx * 0.06);
 
     // Minutes logic: puddle grows from invisible (0) to floor-filling (59)
     // Use sqrt mapping so perceived *area* grows roughly linearly with minutes.
@@ -266,8 +254,11 @@ registerSketch('sk4', function (p) {
     const puddleMaxR = p.min(p.width, p.height) * 0.42;
     const puddleR = puddleMaxR * p.sqrt(minuteT);
 
-    const cubeCx = p.width / 2;
-    const cubeCy = p.height * 0.60;
+    // Everything relative to a stable center anchor
+    const centerX = p.width / 2;
+    const centerY = p.height / 2;
+    const cubeCx = centerX;
+    const cubeCy = centerY + 120; // leave room for digital time and hour scale
     const puddleY = cubeCy + (cubeSize * 0.58) * 1.15; // match cube shadow position
 
     // Store latest geometry for mousePressed
@@ -292,30 +283,28 @@ registerSketch('sk4', function (p) {
     const cubeJx = cubeCx + jigX;
     const cubeJy = cubeCy + jigY;
 
-    // Seconds logic: a drip falls from cube top to puddle once per second
+    // Seconds logic: a drip falls from the CENTER-TOP of the cube once per second
+    // (Y increases based on p.millis() % 1000)
     if (s !== lastSecond) {
       lastSecond = s;
-      dripOffsetX = p.map(p.noise(s * 0.33, 3.7), 0, 1, -cubeSize * 0.18, cubeSize * 0.18);
     }
 
-    const dripT = (now % 1000) / 1000; // 0..1 each second
-    const dt = smoothstep(dripT);
-    const dripStartX = cubeJx + dripOffsetX;
-    const dripStartY = cubeJy - heightPx - cubeSize * 0.10;
-    const dripEndX = cubeCx + dripOffsetX * 0.35;
-    const dripEndY = puddleY - 6;
+    const dt = (now % 1000) / 1000; // 0..1 each second
+    const dripStartX = cubeJx; // center-top
+    const dripStartY = cubeJy - heightPx; // center of the top face
+    const dripEndX = cubeCx;
+    const dripEndY = puddleY - 8;
 
-    const dripX = p.lerp(dripStartX, dripEndX, dt) + p.sin(dt * p.PI) * dripOffsetX * 0.08;
+    const dripX = dripStartX;
     const dripY = p.lerp(dripStartY, dripEndY, dt);
 
     // Draw cube before the drip so the drip reads in front
     drawIsoIceCube(cubeJx, cubeJy, cubeSize, heightPx);
 
-    // Drip particle
+    // Drip particle (bright blue)
     p.noStroke();
-    p.fill(90, 190, 255, 190);
-    const dripD = p.lerp(4, 7, 1 - dt);
-    p.circle(dripX, dripY, dripD);
+    p.fill(0, 185, 255, 240);
+    p.circle(dripX, dripY, 7);
 
     // Landing micro-ripple near impact (only if puddle exists)
     if (puddleR > 2 && dt > 0.94) {
@@ -326,5 +315,5 @@ registerSketch('sk4', function (p) {
       p.ellipse(dripEndX, dripEndY, (10 + 30 * impactT), (7 + 20 * impactT));
     }
   };
-  p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
+  p.windowResized = function () { /* fixed 800x800 */ };
 });
