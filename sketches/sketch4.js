@@ -1,7 +1,26 @@
 // Instance-mode sketch for tab 4
 registerSketch('sk4', function (p) {
+  // Interaction / animation state
+  let lastSecond = -1;
+  let dripOffsetX = 0;
+  let jiggleUntilMs = 0;
+  const splashes = [];
+
+  // Last computed geometry (so mouse clicks can spawn splashes in the right place)
+  let lastCubeCx = 0;
+  let lastCubeCy = 0;
+  let lastCubeSize = 0;
+  let lastHeightPx = 0;
+  let lastPuddleY = 0;
+  let lastPuddleR = 0;
+
   function pad2(n) {
     return String(n).padStart(2, '0');
+  }
+
+  function smoothstep(t) {
+    const x = p.constrain(t, 0, 1);
+    return x * x * (3 - 2 * x);
   }
 
   function drawPuddle(cx, cy, r) {
@@ -47,6 +66,45 @@ registerSketch('sk4', function (p) {
     p.endShape(p.CLOSE);
 
     p.pop();
+  }
+
+  function drawSplashes() {
+    const now = p.millis();
+    for (let i = splashes.length - 1; i >= 0; i--) {
+      const sp = splashes[i];
+      const age = (now - sp.t0) / 1000; // seconds
+      if (age > 0.9) {
+        splashes.splice(i, 1);
+        continue;
+      }
+
+      const a = 1 - age / 0.9;
+      const baseR = p.lerp(6, sp.maxR, smoothstep(age / 0.9));
+
+      p.push();
+      p.translate(sp.x, sp.y);
+      p.noFill();
+      p.strokeWeight(2);
+
+      // outer ring
+      p.stroke(150, 220, 255, 110 * a);
+      p.ellipse(0, 0, baseR * 2.0, baseR * 1.25);
+
+      // inner ring
+      p.stroke(90, 185, 255, 140 * a);
+      p.ellipse(0, 0, baseR * 1.3, baseR * 0.85);
+
+      // tiny droplets
+      p.noStroke();
+      p.fill(120, 205, 255, 85 * a);
+      for (let k = 0; k < sp.dots; k++) {
+        const ang = sp.phi + (p.TWO_PI * k) / sp.dots;
+        const rr = baseR * 0.55;
+        p.circle(rr * p.cos(ang), 0.62 * rr * p.sin(ang), 3);
+      }
+
+      p.pop();
+    }
   }
 
   function drawIsoIceCube(cx, cy, size, heightPx) {
@@ -125,7 +183,29 @@ registerSketch('sk4', function (p) {
   p.setup = function () {
     p.createCanvas(p.windowWidth, p.windowHeight);
     p.textFont('Helvetica');
+    p.noiseSeed(7);
   };
+
+  p.mousePressed = function () {
+    // Click: add a splash + briefly jiggle the cube
+    jiggleUntilMs = p.millis() + 450;
+
+    // If puddle is invisible, still allow jiggle but skip splash
+    if (lastPuddleR <= 1) return;
+
+    const ox = p.map(p.noise(p.millis() * 0.001, 1.2), 0, 1, -lastPuddleR * 0.25, lastPuddleR * 0.25);
+    const oy = p.map(p.noise(p.millis() * 0.001, 2.3), 0, 1, -lastPuddleR * 0.12, lastPuddleR * 0.12);
+
+    splashes.push({
+      t0: p.millis(),
+      x: lastCubeCx + ox,
+      y: lastPuddleY + oy,
+      maxR: lastPuddleR * 0.55,
+      dots: 8,
+      phi: p.noise(p.millis() * 0.001, 9.1) * p.TWO_PI
+    });
+  };
+
   p.draw = function () {
     // Dark background
     p.background(10, 12, 18);
@@ -189,9 +269,62 @@ registerSketch('sk4', function (p) {
     const cubeCx = p.width / 2;
     const cubeCy = p.height * 0.60;
     const puddleY = cubeCy + (cubeSize * 0.58) * 1.15; // match cube shadow position
-    drawPuddle(cubeCx, puddleY, puddleR);
 
-    drawIsoIceCube(cubeCx, cubeCy, cubeSize, heightPx);
+    // Store latest geometry for mousePressed
+    lastCubeCx = cubeCx;
+    lastCubeCy = cubeCy;
+    lastCubeSize = cubeSize;
+    lastHeightPx = heightPx;
+    lastPuddleY = puddleY;
+    lastPuddleR = puddleR;
+
+    drawPuddle(cubeCx, puddleY, puddleR);
+    drawSplashes();
+
+    // Interactivity: subtle jiggle using noise after a click
+    const now = p.millis();
+    const jiggleT = (now < jiggleUntilMs) ? p.constrain((jiggleUntilMs - now) / 450, 0, 1) : 0;
+    const jiggleAmt = cubeSize * 0.06 * jiggleT;
+    const nT = now * 0.01;
+    const jigX = (p.noise(nT, 10.1) - 0.5) * 2 * jiggleAmt;
+    const jigY = (p.noise(nT, 20.2) - 0.5) * 2 * jiggleAmt * 0.55;
+
+    const cubeJx = cubeCx + jigX;
+    const cubeJy = cubeCy + jigY;
+
+    // Seconds logic: a drip falls from cube top to puddle once per second
+    if (s !== lastSecond) {
+      lastSecond = s;
+      dripOffsetX = p.map(p.noise(s * 0.33, 3.7), 0, 1, -cubeSize * 0.18, cubeSize * 0.18);
+    }
+
+    const dripT = (now % 1000) / 1000; // 0..1 each second
+    const dt = smoothstep(dripT);
+    const dripStartX = cubeJx + dripOffsetX;
+    const dripStartY = cubeJy - heightPx - cubeSize * 0.10;
+    const dripEndX = cubeCx + dripOffsetX * 0.35;
+    const dripEndY = puddleY - 6;
+
+    const dripX = p.lerp(dripStartX, dripEndX, dt) + p.sin(dt * p.PI) * dripOffsetX * 0.08;
+    const dripY = p.lerp(dripStartY, dripEndY, dt);
+
+    // Draw cube before the drip so the drip reads in front
+    drawIsoIceCube(cubeJx, cubeJy, cubeSize, heightPx);
+
+    // Drip particle
+    p.noStroke();
+    p.fill(90, 190, 255, 190);
+    const dripD = p.lerp(4, 7, 1 - dt);
+    p.circle(dripX, dripY, dripD);
+
+    // Landing micro-ripple near impact (only if puddle exists)
+    if (puddleR > 2 && dt > 0.94) {
+      const impactT = (dt - 0.94) / 0.06;
+      p.noFill();
+      p.stroke(140, 220, 255, 120 * (1 - impactT));
+      p.strokeWeight(2);
+      p.ellipse(dripEndX, dripEndY, (10 + 30 * impactT), (7 + 20 * impactT));
+    }
   };
   p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
 });
