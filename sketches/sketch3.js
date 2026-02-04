@@ -50,6 +50,58 @@ registerSketch('sk3', function (p) {
     p.fill(80, 55, 35);
     p.circle(cx, cy, mugRadius * 1.9);
     
+    // Minutes: Dissipating foam layer (fog-like overlay)
+    const currentMinute = p.minute(); // 0-59
+    const currentSecond = p.second();
+    // Use a smooth minute+second value so change is continuous over time
+    const minuteProgress = currentMinute + currentSecond / 60;
+    // Map minutes: 0 = 100% foam opacity, 59 = 5% foam opacity (95% gone)
+    const foamOpacity = p.map(minuteProgress, 0, 59, 0.95, 0.05);
+    const foamAlpha = Math.floor(foamOpacity * 200); // Max opacity of 200 for fog effect
+    
+    if (foamAlpha > 5) { // Only draw if there's visible foam
+      p.push();
+      p.noStroke();
+      
+      // Create fog-like effect with multiple semi-transparent layers
+      // Base fog layer
+      p.fill(250, 245, 235, foamAlpha);
+      p.circle(cx, cy, mugRadius * 1.9);
+      
+      // Additional fog layers with noise for organic texture
+      const noiseScale = 0.15;
+      const step = 4;
+      for (let y = cy - mugRadius * 0.9; y < cy + mugRadius * 0.9; y += step) {
+        for (let x = cx - mugRadius * 0.9; x < cx + mugRadius * 0.9; x += step) {
+          const dist = p.dist(x, y, cx, cy);
+          if (dist < mugRadius * 0.85) {
+            // Use noise to create foggy texture
+            const n = p.noise(x * noiseScale, y * noiseScale, minuteProgress * 0.1);
+            if (n > 0.4) { // Only draw where noise is above threshold
+              const localAlpha = foamAlpha * (n - 0.4) * 1.67; // Scale to 0-1 range
+              p.fill(255, 250, 240, localAlpha * 0.6);
+              p.circle(x, y, step * 1.5);
+            }
+          }
+        }
+      }
+      
+      // Top layer - lighter fog wisps
+      for (let i = 0; i < 15; i++) {
+        const n1 = p.noise(i * 0.5, minuteProgress * 0.05);
+        const n2 = p.noise(i * 0.5 + 50, minuteProgress * 0.05);
+        const angle = n1 * p.TWO_PI;
+        const dist = n2 * mugRadius * 0.7;
+        const wispX = cx + dist * p.cos(angle);
+        const wispY = cy + dist * p.sin(angle);
+        const wispSize = mugRadius * p.lerp(0.15, 0.35, n2);
+        p.fill(255, 255, 250, foamAlpha * 0.4);
+        p.circle(wispX, wispY, wispSize);
+      }
+      
+      p.pop();
+    }
+    
     // Hours: Coffee stain marks around the rim
     const currentHour = p.hour(); // 0-23 (military time)
     const numPositions = 24;
@@ -65,8 +117,8 @@ registerSketch('sk3', function (p) {
       const stainY = cy + rimDist * p.sin(angle);
       
       // Draw coffee stain (brown, slightly irregular)
-      const stainSize = mugRadius * 0.08;
-      p.fill(90, 60, 40, 220); // brown coffee stain color
+      const stainSize = mugRadius * 0.11;
+      p.fill(200, 170, 120, 240); // lighter coffee stain color for visibility
       p.circle(stainX, stainY, stainSize);
       
       // Add a darker center for depth
