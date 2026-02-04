@@ -1,5 +1,10 @@
 // Instance-mode sketch for tab 3
 registerSketch('sk3', function (p) {
+  // Track bubble state for seconds feature
+  let currentBubbleSecond = -1;
+  let bubbleX = 0;
+  let bubbleY = 0;
+
   function pad2(n) {
     return String(n).padStart(2, '0');
   }
@@ -137,10 +142,43 @@ registerSketch('sk3', function (p) {
       p.circle(offsetX, offsetY, stainSize * 0.4);
     }
     
-    // Digital time at the top (drawn last so it's on top)
+    // Seconds: Bubble feature - one bubble per second that pops when second changes
+    const s = p.second();
     const h = p.hour();
     const m = p.minute();
-    const s = p.second();
+    
+    // When second changes, create a new bubble at random position
+    if (s !== currentBubbleSecond) {
+      currentBubbleSecond = s;
+      // Random position within the coffee mug (not too close to edges)
+      const angle = p.random(0, p.TWO_PI);
+      const dist = p.random(0, mugRadius * 0.65);
+      bubbleX = cx + dist * p.cos(angle);
+      bubbleY = cy + dist * p.sin(angle);
+    }
+    
+    // Draw the bubble (shiny, translucent circle)
+    if (currentBubbleSecond === s) {
+      p.push();
+      const bubbleSize = mugRadius * 0.12;
+      
+      // Main bubble - translucent with slight blue tint
+      p.noStroke();
+      p.fill(200, 220, 240, 120);
+      p.circle(bubbleX, bubbleY, bubbleSize);
+      
+      // Shiny highlight on top-left
+      p.fill(255, 255, 255, 180);
+      p.circle(bubbleX - bubbleSize * 0.25, bubbleY - bubbleSize * 0.25, bubbleSize * 0.4);
+      
+      // Outer glow
+      p.fill(180, 210, 230, 60);
+      p.circle(bubbleX, bubbleY, bubbleSize * 1.3);
+      
+      p.pop();
+    }
+    
+    // Digital time at the top (drawn last so it's on top)
     const timeStr = `${pad2(h)}:${pad2(m)}:${pad2(s)}`;
 
     p.noStroke();
