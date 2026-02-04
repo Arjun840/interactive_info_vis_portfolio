@@ -4,6 +4,51 @@ registerSketch('sk4', function (p) {
     return String(n).padStart(2, '0');
   }
 
+  function drawPuddle(cx, cy, r) {
+    if (r <= 0.5) return;
+
+    // Irregular but stable "puddle" using layered sine perturbations
+    const pts = 36;
+    const phase1 = 0.9;
+    const phase2 = 2.1;
+    const phase3 = -0.6;
+
+    p.push();
+    p.translate(cx, cy);
+    p.noStroke();
+
+    // Slight radial gradient by drawing 2 layers
+    p.fill(70, 160, 230, 70);
+    p.beginShape();
+    for (let i = 0; i < pts; i++) {
+      const a = (p.TWO_PI * i) / pts;
+      const k =
+        0.78 +
+        0.10 * p.sin(a * 3 + phase1) +
+        0.08 * p.sin(a * 7 + phase2) +
+        0.05 * p.sin(a * 11 + phase3);
+      const rr = r * k;
+      p.vertex(rr * p.cos(a), rr * 0.62 * p.sin(a));
+    }
+    p.endShape(p.CLOSE);
+
+    p.fill(100, 195, 255, 95);
+    p.beginShape();
+    for (let i = 0; i < pts; i++) {
+      const a = (p.TWO_PI * i) / pts;
+      const k =
+        0.72 +
+        0.10 * p.sin(a * 3 + phase1 + 0.5) +
+        0.07 * p.sin(a * 7 + phase2 - 0.3) +
+        0.04 * p.sin(a * 11 + phase3 + 0.8);
+      const rr = r * 0.72 * k;
+      p.vertex(rr * p.cos(a), rr * 0.62 * p.sin(a));
+    }
+    p.endShape(p.CLOSE);
+
+    p.pop();
+  }
+
   function drawIsoIceCube(cx, cy, size, heightPx) {
     // Isometric proportions
     const isoW = size;
@@ -135,7 +180,18 @@ registerSketch('sk4', function (p) {
     const maxHeightPx = cubeSize * 1.15;
     const heightPx = maxHeightPx * heightFactor;
 
-    drawIsoIceCube(p.width / 2, p.height * 0.60, cubeSize, heightPx);
+    // Minutes logic: puddle grows from invisible (0) to floor-filling (59)
+    // Use sqrt mapping so perceived *area* grows roughly linearly with minutes.
+    const minuteT = p.constrain(m / 59, 0, 1);
+    const puddleMaxR = p.min(p.width, p.height) * 0.42;
+    const puddleR = puddleMaxR * p.sqrt(minuteT);
+
+    const cubeCx = p.width / 2;
+    const cubeCy = p.height * 0.60;
+    const puddleY = cubeCy + (cubeSize * 0.58) * 1.15; // match cube shadow position
+    drawPuddle(cubeCx, puddleY, puddleR);
+
+    drawIsoIceCube(cubeCx, cubeCy, cubeSize, heightPx);
   };
   p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
 });
