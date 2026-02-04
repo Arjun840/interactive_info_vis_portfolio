@@ -49,6 +49,36 @@ registerSketch('sk3', function (p) {
     // Mug rim (lighter inner edge)
     p.fill(80, 55, 35);
     p.circle(cx, cy, mugRadius * 1.9);
+    
+    // Hours: Coffee stain marks around the rim
+    const currentHour = p.hour(); // 0-23 (military time)
+    const numPositions = 24;
+    
+    p.noStroke();
+    for (let i = 0; i < currentHour; i++) {
+      // Calculate angle for each of the 24 positions
+      const angle = (p.TWO_PI * i) / numPositions - p.HALF_PI; // Start at top (12 o'clock)
+      
+      // Position on the rim of the mug
+      const rimDist = mugRadius * 0.92; // Slightly inside the edge
+      const stainX = cx + rimDist * p.cos(angle);
+      const stainY = cy + rimDist * p.sin(angle);
+      
+      // Draw coffee stain (brown, slightly irregular)
+      const stainSize = mugRadius * 0.08;
+      p.fill(90, 60, 40, 220); // brown coffee stain color
+      p.circle(stainX, stainY, stainSize);
+      
+      // Add a darker center for depth
+      p.fill(70, 45, 30, 180);
+      p.circle(stainX, stainY, stainSize * 0.6);
+      
+      // Slight irregularity (small offset circle)
+      const offsetX = stainX + (p.noise(i * 0.5) - 0.5) * stainSize * 0.3;
+      const offsetY = stainY + (p.noise(i * 0.5 + 10) - 0.5) * stainSize * 0.3;
+      p.fill(100, 70, 50, 150);
+      p.circle(offsetX, offsetY, stainSize * 0.4);
+    }
   };
   p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
 });
