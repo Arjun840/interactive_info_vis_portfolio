@@ -2,6 +2,7 @@
 registerSketch('sk4', function (p) {
   // Interaction / animation state
   let lastSecond = -1;
+  let lastMinute = -1;
   let dripOffsetX = 0;
   let jiggleUntilMs = 0;
   const splashes = [];
@@ -65,6 +66,29 @@ registerSketch('sk4', function (p) {
     }
     p.endShape(p.CLOSE);
 
+    p.pop();
+  }
+
+  function drawPuddleMinuteLabel(cx, cy, minute) {
+    // Label lives on the puddle (not on the drip)
+    if (minute <= 0) return;
+
+    const label = String(Math.round(minute / 10) * 10 % 60); // 0,10,20,... for readability
+
+    p.push();
+    p.textAlign(p.CENTER, p.CENTER);
+    p.textSize(18);
+    p.noStroke();
+
+    // Subtle pill behind text so it stays readable on top of the puddle
+    const w = p.textWidth(label) + 18;
+    const h = 26;
+    p.fill(5, 10, 18, 170);
+    p.rectMode(p.CENTER);
+    p.rect(cx, cy, w, h, 8);
+
+    p.fill(230, 245, 255, 220);
+    p.text(label, cx, cy + 1);
     p.pop();
   }
 
@@ -270,6 +294,7 @@ registerSketch('sk4', function (p) {
     lastPuddleR = puddleR;
 
     drawPuddle(cubeCx, puddleY, puddleR);
+    drawPuddleMinuteLabel(cubeCx, puddleY, m);
     drawSplashes();
 
     // Interactivity: subtle jiggle using noise after a click
@@ -283,36 +308,58 @@ registerSketch('sk4', function (p) {
     const cubeJx = cubeCx + jigX;
     const cubeJy = cubeCy + jigY;
 
-    // Seconds logic: a drip falls from the CENTER-TOP of the cube once per second
-    // (Y increases based on p.millis() % 1000)
-    if (s !== lastSecond) {
-      lastSecond = s;
+    // Drip: falls slowly over 60 seconds to mark each minute passing.
+    // Resets every minute via p.millis() % 60000.
+    if (m !== lastMinute) {
+      lastMinute = m;
+      // Spawn a subtle splash right as the minute flips (only if puddle exists)
+      if (puddleR > 2) {
+        splashes.push({
+          t0: now,
+          x: cubeCx,
+          y: puddleY - 6,
+          maxR: puddleR * 0.45,
+          dots: 10,
+          phi: p.noise(now * 0.001, 9.1) * p.TWO_PI
+        });
+      }
     }
 
-    const dt = (now % 1000) / 1000; // 0..1 each second
-    const dripStartX = cubeJx; // center-top
-    const dripStartY = cubeJy - heightPx; // center of the top face
+    const dt = (now % 60000) / 60000; // 0..1 over a full minute
+    const dtEase = smoothstep(dt);
+
+    // Start at the cube's center-top; end at the puddle
+    const dripStartX = cubeJx;
+    const dripStartY = cubeJy - heightPx - cubeSize * 0.12;
     const dripEndX = cubeCx;
     const dripEndY = puddleY - 8;
 
-    const dripX = dripStartX;
-    const dripY = p.lerp(dripStartY, dripEndY, dt);
+    const dripX = p.lerp(dripStartX, dripEndX, dtEase);
+    const dripY = p.lerp(dripStartY, dripEndY, dtEase);
 
     // Draw cube before the drip so the drip reads in front
     drawIsoIceCube(cubeJx, cubeJy, cubeSize, heightPx);
 
-    // Drip particle (bright blue)
+    // Drip particle (bright blue) with minute "diameter" marker
+    const dripD = 14;
     p.noStroke();
-    p.fill(0, 185, 255, 240);
-    p.circle(dripX, dripY, 7);
+    p.fill(0, 200, 255, 245);
+    p.circle(dripX, dripY, dripD);
+
+    // Diameter marker rotates with minute (shows "how many minutes have passed")
+    const a = (p.TWO_PI * m) / 60 - p.HALF_PI;
+    const r = dripD * 0.48;
+    p.stroke(245, 255, 255, 220);
+    p.strokeWeight(2);
+    p.line(dripX - r * p.cos(a), dripY - r * p.sin(a), dripX + r * p.cos(a), dripY + r * p.sin(a));
 
     // Landing micro-ripple near impact (only if puddle exists)
-    if (puddleR > 2 && dt > 0.94) {
-      const impactT = (dt - 0.94) / 0.06;
+    if (puddleR > 2 && dt > 0.985) {
+      const impactT = (dt - 0.985) / 0.015;
       p.noFill();
-      p.stroke(140, 220, 255, 120 * (1 - impactT));
+      p.stroke(140, 220, 255, 140 * (1 - impactT));
       p.strokeWeight(2);
-      p.ellipse(dripEndX, dripEndY, (10 + 30 * impactT), (7 + 20 * impactT));
+      p.ellipse(dripEndX, dripEndY, (12 + 46 * impactT), (9 + 32 * impactT));
     }
   };
   p.windowResized = function () { /* fixed 800x800 */ };
