@@ -1,5 +1,10 @@
 // Instance-mode sketch for tab 2
 registerSketch('sk2', function (p) {
+  // Track previous mouse position for doodling
+  let prevMouseX = 0;
+  let prevMouseY = 0;
+  let isDrawing = false;
+
   function drawFingerWipe(cx, cy, angle, len, thickness, seed) {
     // Thick "wiped" path through fog (draw this while in p.erase() mode)
     const steps = 16;
@@ -292,6 +297,42 @@ registerSketch('sk2', function (p) {
 
     // Foggy grey mist on mirror (static, circular)
     drawMirrorMist(mirrorCx, mirrorCy, mirrorRadius);
+
+    // Interactivity: Doodle on mirror when mouse is pressed
+    if (p.mouseIsPressed) {
+      // Check if mouse is within the mirror circle
+      const distToMirror = p.dist(p.mouseX, p.mouseY, mirrorCx, mirrorCy);
+      if (distToMirror < mirrorRadius) {
+        // Draw erased line for doodling
+        p.erase();
+        p.stroke(0);
+        p.strokeWeight(20);
+        p.strokeCap(p.ROUND);
+        p.strokeJoin(p.ROUND);
+        
+        if (isDrawing && prevMouseX !== 0 && prevMouseY !== 0) {
+          // Draw line from previous position to current
+          p.line(prevMouseX, prevMouseY, p.mouseX, p.mouseY);
+        } else {
+          // Draw a small circle at current position
+          p.point(p.mouseX, p.mouseY);
+        }
+        
+        p.noErase();
+        isDrawing = true;
+        prevMouseX = p.mouseX;
+        prevMouseY = p.mouseY;
+      } else {
+        isDrawing = false;
+        prevMouseX = 0;
+        prevMouseY = 0;
+      }
+    } else {
+      // Reset when mouse is released
+      isDrawing = false;
+      prevMouseX = 0;
+      prevMouseY = 0;
+    }
 
     // Draw clock face (12 radial dashes)
     drawClockFace(mh, mv, clockR);
