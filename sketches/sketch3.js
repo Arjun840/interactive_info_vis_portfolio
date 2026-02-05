@@ -90,6 +90,21 @@ registerSketch('sk3', function (p) {
     p.fill(80, 55, 35);
     p.circle(cx, cy, mugRadius * 1.9);
     
+    // White cup handle (top-down view, outside the white plate circle)
+    p.noStroke();
+    p.fill(255, 255, 255, 250); // White, matching the plate
+    const handleX = cx + plateRadius * 1.1; // Position outside the white plate
+    const handleY = cy;
+    const handleWidth = plateRadius * 0.3;
+    const handleHeight = plateRadius * 0.4;
+    
+    // Simple curved handle shape (ellipse from top-down view)
+    p.ellipse(handleX, handleY, handleWidth * 2, handleHeight * 2);
+    
+    // Inner opening to create the handle shape
+    p.fill(139, 90, 43); // Brown background color (wooden table)
+    p.ellipse(handleX - handleWidth * 0.2, handleY, handleWidth * 1.2, handleHeight * 1.4);
+    
     // Minutes: Dissipating foam layer (particle system)
     const currentMinute = p.minute(); // 0-59
     // Map minutes: 0 = 100% foam (max particles), 59 = 5% foam (95% gone)
