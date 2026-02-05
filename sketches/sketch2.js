@@ -1,9 +1,7 @@
 // Instance-mode sketch for tab 2
 registerSketch('sk2', function (p) {
-  // Track previous mouse position for doodling
-  let prevMouseX = 0;
-  let prevMouseY = 0;
-  let isDrawing = false;
+  // Graphics buffer for fog layer (so erases persist)
+  let fogBuffer;
 
   function drawFingerWipe(cx, cy, angle, len, thickness, seed) {
     // Thick "wiped" path through fog (draw this while in p.erase() mode)
@@ -136,15 +134,15 @@ registerSketch('sk2', function (p) {
     p.circle(cx, cy, 8);
   }
 
-  function drawMirrorMist(cx, cy, radius) {
+  function drawMirrorMistToBuffer(buffer, cx, cy, radius) {
     // Base fog circle (requested fill), then add static grey mist texture (no animation)
-    p.noStroke();
+    buffer.noStroke();
     // Slightly less "whiteboard" and more grey mist so the mirror still reads as glass
-    p.fill(205, 205, 205, 215);
-    p.circle(cx, cy, radius * 2);
+    buffer.fill(205, 205, 205, 215);
+    buffer.circle(cx, cy, radius * 2);
 
     // Static grey mist blobs (gives "foggy" look vs flat circle, but no movement)
-    p.noStroke();
+    buffer.noStroke();
     for (let i = 0; i < 26; i++) {
       const u = i / 25;
       const angle = p.TWO_PI * u;
@@ -153,14 +151,14 @@ registerSketch('sk2', function (p) {
       const y = cy + dist * p.sin(angle);
       const w = radius * p.lerp(0.18, 0.42, p.noise(i * 0.7, 2.1));
       const h = radius * p.lerp(0.18, 0.42, p.noise(i * 0.7, 4.4));
-      p.fill(195, 195, 195, 55);
-      p.ellipse(x, y, w, h);
-      p.fill(225, 225, 225, 28);
-      p.ellipse(x + 18, y - 6, w * 0.75, h * 0.75);
+      buffer.fill(195, 195, 195, 55);
+      buffer.ellipse(x, y, w, h);
+      buffer.fill(225, 225, 225, 28);
+      buffer.ellipse(x + 18, y - 6, w * 0.75, h * 0.75);
     }
 
     // Fine mist speckles (static noise-based) for texture
-    p.noStroke();
+    buffer.noStroke();
     const step = 22;
     for (let y = cy - radius + 8; y < cy + radius - 8; y += step) {
       for (let x = cx - radius + 8; x < cx + radius - 8; x += step) {
@@ -168,8 +166,8 @@ registerSketch('sk2', function (p) {
         if (dist < radius - 8) {
           const n = p.noise(x * 0.01, y * 0.01, 3.3);
           if (n > 0.58) {
-            p.fill(240, 240, 240, 26);
-            p.circle(x, y, 10 + 10 * n);
+            buffer.fill(240, 240, 240, 26);
+            buffer.circle(x, y, 10 + 10 * n);
           }
         }
       }
@@ -296,42 +294,31 @@ registerSketch('sk2', function (p) {
     const minAng = minFrac * p.TWO_PI - p.HALF_PI;
 
     // Foggy grey mist on mirror (static, circular)
-    drawMirrorMist(mirrorCx, mirrorCy, mirrorRadius);
+    // Initialize fog buffer on first draw or if canvas resized
+    if (!fogBuffer || fogBuffer.width !== p.width || fogBuffer.height !== p.height) {
+      fogBuffer = p.createGraphics(p.width, p.height);
+      // Clear buffer with transparent background
+      fogBuffer.clear();
+      // Draw fog to buffer
+      drawMirrorMistToBuffer(fogBuffer, mirrorCx, mirrorCy, mirrorRadius);
+    }
 
-    // Interactivity: Doodle on mirror when mouse is pressed
+    // Interactivity: Wipe fog away when mouse is pressed (erase from buffer)
     if (p.mouseIsPressed) {
       // Check if mouse is within the mirror circle
       const distToMirror = p.dist(p.mouseX, p.mouseY, mirrorCx, mirrorCy);
       if (distToMirror < mirrorRadius) {
-        // Draw erased line for doodling
-        p.erase();
-        p.stroke(0);
-        p.strokeWeight(20);
-        p.strokeCap(p.ROUND);
-        p.strokeJoin(p.ROUND);
-        
-        if (isDrawing && prevMouseX !== 0 && prevMouseY !== 0) {
-          // Draw line from previous position to current
-          p.line(prevMouseX, prevMouseY, p.mouseX, p.mouseY);
-        } else {
-          // Draw a small circle at current position
-          p.point(p.mouseX, p.mouseY);
-        }
-        
-        p.noErase();
-        isDrawing = true;
-        prevMouseX = p.mouseX;
-        prevMouseY = p.mouseY;
-      } else {
-        isDrawing = false;
-        prevMouseX = 0;
-        prevMouseY = 0;
+        fogBuffer.erase();
+        fogBuffer.noStroke();
+        fogBuffer.fill(255);
+        fogBuffer.circle(p.mouseX, p.mouseY, 30);
+        fogBuffer.noErase();
       }
-    } else {
-      // Reset when mouse is released
-      isDrawing = false;
-      prevMouseX = 0;
-      prevMouseY = 0;
+    }
+
+    // Draw the fog buffer to the main canvas (after mirror, before clock)
+    if (fogBuffer) {
+      p.image(fogBuffer, 0, 0);
     }
 
     // Draw clock face (12 radial dashes)
@@ -343,5 +330,13 @@ registerSketch('sk2', function (p) {
     // Minute hand: longer, slightly thinner
     drawToothbrushWithGlow(mh, mv, minAng, minLen, 8);
   };
-  p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
+  p.windowResized = function () {
+    p.resizeCanvas(p.windowWidth, p.windowHeight);
+    // Recreate fog buffer when window resizes
+    fogBuffer = p.createGraphics(p.width, p.height);
+    const cx = p.width / 2;
+    const cy = 70 + p.min(p.width * 0.31, p.height * 0.26, 280);
+    const mirrorRadius = p.min(p.width * 0.31, p.height * 0.26, 280);
+    drawMirrorMistToBuffer(fogBuffer, cx, cy, mirrorRadius);
+  };
 });
