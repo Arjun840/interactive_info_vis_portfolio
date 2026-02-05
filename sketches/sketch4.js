@@ -6,6 +6,7 @@ registerSketch('sk4', function (p) {
   let dripOffsetX = 0;
   let jiggleUntilMs = 0;
   const splashes = [];
+  const splashParticles = []; // Particles that fly up from puddle clicks
 
   // Last computed geometry (so mouse clicks can spawn splashes in the right place)
   let lastCubeCx = 0;
@@ -201,23 +202,42 @@ registerSketch('sk4', function (p) {
   };
 
   p.mousePressed = function () {
-    // Click: add a splash + briefly jiggle the cube
-    jiggleUntilMs = p.millis() + 450;
-
-    // If puddle is invisible, still allow jiggle but skip splash
-    if (lastPuddleR <= 1) return;
-
-    const ox = p.map(p.noise(p.millis() * 0.001, 1.2), 0, 1, -lastPuddleR * 0.25, lastPuddleR * 0.25);
-    const oy = p.map(p.noise(p.millis() * 0.001, 2.3), 0, 1, -lastPuddleR * 0.12, lastPuddleR * 0.12);
-
-    splashes.push({
-      t0: p.millis(),
-      x: lastCubeCx + ox,
-      y: lastPuddleY + oy,
-      maxR: lastPuddleR * 0.55,
-      dots: 8,
-      phi: p.noise(p.millis() * 0.001, 9.1) * p.TWO_PI
-    });
+    const mx = p.mouseX;
+    const my = p.mouseY;
+    
+    // Check if click is on the ice cube
+    const distToCube = p.dist(mx, my, lastCubeCx, lastCubeCy - lastHeightPx / 2);
+    const cubeClickRadius = lastCubeSize * 0.8; // Approximate clickable area
+    
+    if (distToCube < cubeClickRadius && lastHeightPx > 5) {
+      // Click on ice cube: make it jiggle
+      jiggleUntilMs = p.millis() + 500; // Jiggle for half a second
+    }
+    
+    // Check if click is in the puddle area
+    if (lastPuddleR > 1) {
+      const distToPuddle = p.dist(mx, my, lastCubeCx, lastPuddleY);
+      
+      if (distToPuddle < lastPuddleR) {
+        // Click on puddle: create 5-10 splash particles
+        const numParticles = p.floor(p.random(5, 11));
+        
+        for (let i = 0; i < numParticles; i++) {
+          const angle = p.random(0, p.TWO_PI);
+          const speed = p.random(3, 8);
+          splashParticles.push({
+            x: mx + p.random(-10, 10),
+            y: my + p.random(-5, 5),
+            vx: p.cos(angle) * speed,
+            vy: p.sin(angle) * speed - p.random(8, 15), // Upward velocity
+            gravity: 0.3,
+            size: p.random(4, 8),
+            life: 1.0,
+            startTime: p.millis()
+          });
+        }
+      }
+    }
   };
 
   p.draw = function () {
@@ -298,14 +318,41 @@ registerSketch('sk4', function (p) {
     drawPuddle(cubeCx, puddleY, puddleR);
     drawPuddleMinuteLabel(cubeCx, puddleY, m);
     drawSplashes();
-
-    // Interactivity: subtle jiggle using noise after a click
+    
+    // Draw splash particles (from puddle clicks)
     const now = p.millis();
-    const jiggleT = (now < jiggleUntilMs) ? p.constrain((jiggleUntilMs - now) / 450, 0, 1) : 0;
-    const jiggleAmt = cubeSize * 0.06 * jiggleT;
-    const nT = now * 0.01;
-    const jigX = (p.noise(nT, 10.1) - 0.5) * 2 * jiggleAmt;
-    const jigY = (p.noise(nT, 20.2) - 0.5) * 2 * jiggleAmt * 0.55;
+    p.noStroke();
+    for (let i = splashParticles.length - 1; i >= 0; i--) {
+      const part = splashParticles[i];
+      const age = (now - part.startTime) / 1000;
+      
+      if (age > part.life || part.y > p.height + 20) {
+        splashParticles.splice(i, 1);
+        continue;
+      }
+      
+      // Update physics
+      part.vy += part.gravity;
+      part.x += part.vx;
+      part.y += part.vy;
+      
+      // Draw particle
+      const alpha = (1 - age / part.life) * 200;
+      p.fill(90, 190, 255, alpha);
+      p.circle(part.x, part.y, part.size);
+    }
+
+    // Interactivity: jiggle cube when clicked (using random offsets)
+    let jigX = 0;
+    let jigY = 0;
+    
+    if (now < jiggleUntilMs) {
+      // Jiggle for half a second with random offsets
+      const jiggleT = p.constrain((jiggleUntilMs - now) / 500, 0, 1);
+      const jiggleAmt = (1 - jiggleT) * 2; // Fade out over time
+      jigX = p.random(-2, 2) * jiggleAmt;
+      jigY = p.random(-2, 2) * jiggleAmt;
+    }
 
     const cubeJx = cubeCx + jigX;
     const cubeJy = cubeCy + jigY;
