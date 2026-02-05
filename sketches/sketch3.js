@@ -5,8 +5,38 @@ registerSketch('sk3', function (p) {
   let bubbleX = 0;
   let bubbleY = 0;
 
+  // Foam particles for stirring interaction
+  let foamParticles = [];
+  let lastMinute = -1;
+
+  // Ripples for click interaction
+  const ripples = [];
+
   function pad2(n) {
     return String(n).padStart(2, '0');
+  }
+
+  function createFoamParticles(cx, cy, mugRadius, numParticles) {
+    const particles = [];
+    for (let i = 0; i < numParticles; i++) {
+      const n1 = p.noise(i * 0.37, 0);
+      const n2 = p.noise(i * 0.73 + 100, 0);
+      const angle = n1 * p.TWO_PI;
+      const dist = n2 * mugRadius * 0.80;
+      particles.push({
+        x: cx + dist * p.cos(angle),
+        y: cy + dist * p.sin(angle),
+        baseX: cx + dist * p.cos(angle), // Original position
+        baseY: cy + dist * p.sin(angle),
+        size: p.lerp(mugRadius * 0.10, mugRadius * 0.18, p.noise(i * 0.5 + 200, 0)),
+        colorR: p.lerp(245, 255, p.noise(i * 0.3 + 300, 0)),
+        colorG: p.lerp(235, 250, p.noise(i * 0.3 + 300, 0)),
+        colorB: p.lerp(220, 240, p.noise(i * 0.3 + 300, 0)),
+        alpha: p.lerp(200, 255, p.noise(i * 0.4 + 400, 0)),
+        hasHighlight: p.noise(i * 0.6 + 500, 0) > 0.35
+      });
+    }
+    return particles;
   }
 
   p.setup = function () {
@@ -60,56 +90,90 @@ registerSketch('sk3', function (p) {
     p.fill(80, 55, 35);
     p.circle(cx, cy, mugRadius * 1.9);
     
-    // Minutes: Dissipating foam layer (fog-like overlay)
+    // Minutes: Dissipating foam layer (particle system)
     const currentMinute = p.minute(); // 0-59
-    // Map minutes: 0 = 100% foam coverage, 59 = 5% foam coverage (95% gone)
-    // At 0 minutes: 100% covered, at 50 minutes: ~15% remaining, at 59 minutes: 5% remaining
-    const foamCoverage = p.map(currentMinute, 0, 59, 1.0, 0.05);
-    const foamAlpha = Math.floor(foamCoverage * 180); // Max opacity for fog effect
+    // Map minutes: 0 = 100% foam (max particles), 59 = 5% foam (95% gone)
+    const maxParticles = 200;
+    const minParticles = Math.floor(maxParticles * 0.05);
+    const numParticles = Math.floor(p.map(currentMinute, 0, 59, maxParticles, minParticles));
     
-    if (foamAlpha > 3) { // Only draw if there's visible foam
-      p.push();
-      p.noStroke();
+    // Recreate particles if minute changed
+    if (currentMinute !== lastMinute) {
+      foamParticles = createFoamParticles(cx, cy, mugRadius, maxParticles);
+      lastMinute = currentMinute;
+    }
+    
+    // Stirring interaction: apply rotational force when mouse is pressed
+    if (p.mouseIsPressed) {
+      const stirRadius = mugRadius * 1.2; // Influence radius
+      const distToMouse = p.dist(p.mouseX, p.mouseY, cx, cy);
       
-      // Base fog layer - semi-transparent cream covering the coffee
-      p.fill(250, 245, 235, foamAlpha);
-      p.circle(cx, cy, mugRadius * 1.9);
-      
-      // Additional fog texture using noise for organic misty appearance
-      const noiseScale = 0.12;
-      const step = 3;
-      const coverageRadius = mugRadius * 0.88 * foamCoverage; // Shrinking coverage area
-      
-      for (let y = cy - mugRadius * 0.9; y < cy + mugRadius * 0.9; y += step) {
-        for (let x = cx - mugRadius * 0.9; x < cx + mugRadius * 0.9; x += step) {
-          const dist = p.dist(x, y, cx, cy);
-          if (dist < coverageRadius) {
-            // Use noise to create foggy texture
-            const n = p.noise(x * noiseScale, y * noiseScale);
-            if (n > 0.35) { // Only draw where noise is above threshold
-              const localAlpha = foamAlpha * (n - 0.35) * 1.54; // Scale to 0-1 range
-              p.fill(255, 250, 240, localAlpha * 0.7);
-              p.circle(x, y, step * 2);
+      if (distToMouse < stirRadius) {
+        // Apply rotational force to nearby particles
+        for (let i = 0; i < foamParticles.length && i < numParticles; i++) {
+          const part = foamParticles[i];
+          const distToParticle = p.dist(p.mouseX, p.mouseY, part.x, part.y);
+          
+          if (distToParticle < stirRadius * 0.6) {
+            // Calculate angle from mouse to particle
+            const angleToParticle = p.atan2(part.y - p.mouseY, part.x - p.mouseX);
+            // Apply rotational force (perpendicular to radius)
+            const force = (1 - distToParticle / (stirRadius * 0.6)) * 2.5;
+            const rotAngle = angleToParticle + p.HALF_PI; // Perpendicular direction
+            
+            part.x += p.cos(rotAngle) * force;
+            part.y += p.sin(rotAngle) * force;
+            
+            // Keep particles within mug bounds
+            const distFromCenter = p.dist(part.x, part.y, cx, cy);
+            if (distFromCenter > mugRadius * 0.85) {
+              const angle = p.atan2(part.y - cy, part.x - cx);
+              part.x = cx + mugRadius * 0.85 * p.cos(angle);
+              part.y = cy + mugRadius * 0.85 * p.sin(angle);
             }
           }
         }
       }
+    } else {
+      // Gradually return particles to base positions when not stirring
+      for (let i = 0; i < foamParticles.length && i < numParticles; i++) {
+        const part = foamParticles[i];
+        part.x = p.lerp(part.x, part.baseX, 0.05);
+        part.y = p.lerp(part.y, part.baseY, 0.05);
+      }
+    }
+    
+    // Draw foam particles
+    p.noStroke();
+    for (let i = 0; i < foamParticles.length && i < numParticles; i++) {
+      const part = foamParticles[i];
+      p.fill(part.colorR, part.colorG, part.colorB, part.alpha);
+      p.circle(part.x, part.y, part.size);
       
-      // Top layer - lighter fog wisps for depth
-      const numWisps = Math.floor(12 * foamCoverage);
-      for (let i = 0; i < numWisps; i++) {
-        const n1 = p.noise(i * 0.5, 0);
-        const n2 = p.noise(i * 0.5 + 50, 0);
-        const angle = n1 * p.TWO_PI;
-        const dist = n2 * coverageRadius * 0.8;
-        const wispX = cx + dist * p.cos(angle);
-        const wispY = cy + dist * p.sin(angle);
-        const wispSize = mugRadius * p.lerp(0.12, 0.28, n2);
-        p.fill(255, 255, 250, foamAlpha * 0.5);
-        p.circle(wispX, wispY, wispSize);
+      if (part.hasHighlight) {
+        p.fill(255, 255, 250, part.alpha * 0.6);
+        p.circle(part.x - part.size * 0.2, part.y - part.size * 0.2, part.size * 0.5);
+      }
+    }
+    
+    // Draw ripples
+    const now = p.millis();
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const ripple = ripples[i];
+      const age = (now - ripple.startTime) / 1000; // seconds
+      
+      if (age > 1.0) {
+        ripples.splice(i, 1);
+        continue;
       }
       
-      p.pop();
+      const radius = age * 80;
+      const alpha = (1 - age) * 120;
+      
+      p.noFill();
+      p.stroke(255, 255, 255, alpha);
+      p.strokeWeight(2);
+      p.circle(ripple.x, ripple.y, radius * 2);
     }
     
     // Hours: Coffee stain marks around the rim
@@ -187,5 +251,22 @@ registerSketch('sk3', function (p) {
     p.textSize(28);
     p.text(timeStr, p.width / 2, 22);
   };
+  p.mousePressed = function () {
+    // Create ripple at mouse position when clicked
+    const cx = p.width / 2;
+    const cy = p.height / 2;
+    const mugRadius = p.min(p.width, p.height) * 0.25 * 0.75;
+    const distToMug = p.dist(p.mouseX, p.mouseY, cx, cy);
+    
+    // Only create ripple if click is within or near the mug
+    if (distToMug < mugRadius * 1.5) {
+      ripples.push({
+        x: p.mouseX,
+        y: p.mouseY,
+        startTime: p.millis()
+      });
+    }
+  };
+
   p.windowResized = function () { p.resizeCanvas(p.windowWidth, p.windowHeight); };
 });
