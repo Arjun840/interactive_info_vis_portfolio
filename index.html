@@ -46,16 +46,19 @@
         <div class="sketch-narrative" aria-labelledby="sk2-narrative-title">
           <h3 id="sk2-narrative-title">Sketch 2: The Foggy Mirror Clock</h3>
           <p>
-            <strong>Context:</strong> This sketch visualizes time as a fog on a mirror that must be physically removed to gain clarity. It addresses the user's morning routine by turning the act of mirror-cleaning into a functional temporal tool. It's designed for a bathroom environment during a high-activity morning routine, where time is felt through humidity and daily hygiene routines.
+            <strong>Context:</strong> This sketch visualizes time as a fog on a mirror that must be physically removed to gain clarity. It addresses the user's morning routine by turning the act of mirror-cleaning into a functional temporal tool. It's designed for a bathroom environment during a high-activity morning routine, where time is felt through humidity and hygiene routines.
           </p>
           <p>
             <strong>Design Decisions:</strong>
           </p>
           <ul>
-            <li><strong>Using p.erase() to simulate finger-smudges on fog:</strong> This connects the digital interface to the tactile memory of clearing a steamed-up mirror.</li>
-            <li><strong>Domestic Object Hands:</strong> Replacing standard clock hands with toothbrushes anchors the "unconventional" clock in a specific physical room.</li>
-            <li><strong>Subtractive Logic:</strong> Most clocks "add" marks; this clock "subtracts" fog to reveal time, emphasizing that time is often what we find when we clear away the morning haze.</li>
+            <li>I used tooth brushes to represent the hour and minute hands of the clock</li>
+            <li>The tooth brushes "wipe away" the fog on the mirror to reveal a clock</li>
+            <li>Most clocks "add" marks; this clock "subtracts" fog to reveal time, emphasizing that time is often what we find when we clear away the morning haze.</li>
           </ul>
+          <p>
+            <strong>Interactivity:</strong> The user can hold their mouse down and erase the fog on the mirror
+          </p>
           <p>
             <strong>Future Work:</strong> I could integrate a "re-fogging" animation that slowly covers the mirror again as the day progresses, symbolizing the fading of morning clarity.
           </p>
@@ -85,16 +88,19 @@
         <div class="sketch-narrative" aria-labelledby="sk3-narrative-title">
           <h3 id="sk3-narrative-title">Sketch 3: The Coffee Foam Clock</h3>
           <p>
-            <strong>Context:</strong> This sketch measures an hour through the chemical dissipation of coffee foam. It addresses the need for a relaxed, ambient time-tracker during moments of rest or focused desk work. It's best used as a "Pomodoro" or break-timer in a kitchen or office setting, where a cup of coffee typically marks a 30-60 minute window of time.
+            <strong>Context:</strong> This sketch measures an hour through the dissipation of coffee foam. It addresses the need for an ambient time-tracker during moments of rest or focused desk work. It's best used as a "Pomodoro" or break-timer in a kitchen or office setting, where a cup of coffee typically marks a 30-60 minute window of time.
           </p>
           <p>
             <strong>Design Decisions:</strong>
           </p>
           <ul>
-            <li><strong>Using coffee "rings" or stains on the rim to track the 24-hour cycle:</strong> This allows for a subtle, permanent record of the day's progress that persists even as the foam resets.</li>
-            <li><strong>Organic Dissipation:</strong> The minute-based foam dissipates as the hour progresses, covering the cup at minute 1 and barely being visible at minute 59.</li>
-            <li><strong>The Pop (Seconds):</strong> The bubble in the cup pops every second signaling the seconds passing as the coffee sits.</li>
+            <li>I used small coffee marks around the rim of the cup to represent how many hours have passed in the day with 24 being present at the end of the day</li>
+            <li>The minute-based foam dissipates as the hour progresses, covering the cup at minute 1 and barely being visible at minute 59.</li>
+            <li>The bubble in the cup pops every second signaling the seconds passing as the coffee sits.</li>
           </ul>
+          <p>
+            <strong>Interactivity:</strong> User can click on the foam to swirl it
+          </p>
           <p>
             <strong>Future Work:</strong> I would like to add a "steam" effect that moves in response to the user's microphone (breathing), making the coffee feel hot and physically present.
           </p>
@@ -130,9 +136,9 @@
             <strong>Design Decisions:</strong>
           </p>
           <ul>
-            <li><strong>Drawing the ice cube in 3D:</strong> This allows the user to judge time through amount left making the hour feel more substantial than a flat 2D line.</li>
-            <li><strong>State Change:</strong> The mapping of hours to the cube's height and minutes to the puddle's size shows time transforming from a solid (potential) into a liquid (time spent).</li>
-            <li><strong>The Drip (Seconds):</strong> The drip provides a constant reminder of the "leakage" of time, creating a sense of urgency as the water hits the puddle.</li>
+            <li>Drawing the ice cube in 3D allows the user to judge time through the amount left making the hour feel more substantial than a flat 2D line.</li>
+            <li>The height of the cube represents the hours, and the size of the drip puddle at the bottom represents how many minutes have passed in the hour, resetting each hour</li>
+            <li>The drip moves every second provides a constant reminder of the "leakage" of time, creating a sense of urgency as the water hits the puddle.</li>
           </ul>
           <p>
             <strong>Future Work:</strong> I would add a "refreeze" animation at midnight where the puddle is sucked back up into a solid block, signifying the start of a fresh day.
